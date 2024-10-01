@@ -1,0 +1,1 @@
+<view class="uni-title data-v-1cf27b2a">当前值: {{a}}</view><view class="button-group data-v-1cf27b2a"><button wx:for="{{b}}" wx:for-item="brightness" wx:key="b" class="btn data-v-1cf27b2a" bindtap="{{brightness.c}}"> 亮度 {{brightness.a}}</button></view><view class="slider-container data-v-1cf27b2a"><slider class="data-v-1cf27b2a" value="{{c}}" bindchange="{{d}}" show-value/></view>
