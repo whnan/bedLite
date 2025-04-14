@@ -3,7 +3,12 @@ import App from './App'
 // #ifndef VUE3
 import Vue from 'vue'
 import './uni.promisify.adaptor'
+import  { request }  from './request'  // 引入封装的请求方法
+
 Vue.config.productionTip = false
+
+Vue.prototype.$request = request
+
 App.mpType = 'app'
 const app = new Vue({
   ...App
