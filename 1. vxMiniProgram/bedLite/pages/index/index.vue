@@ -1,140 +1,280 @@
 <template>
-	<!-- <view class="container"> -->
-	<!-- 显示滑块的当前值 -->
-	<view class="uni-title">当前值: {{ sliderValue }}</view>
+	<view class="container">
+		<!-- Header -->
+		<view class="header">
+			<text class="title">Bed Lite</text>
+			<text class="subtitle">Smart Home Control</text>
+		</view>
 
-	<!-- 按钮组 -->
-	<view class="button-group">
-		<button v-for="(brightness, index) in brightnessLevels" :key="index" class="btn"
-			@click="handleBrightnessClick(index, brightness)">
-			亮度 {{ brightness }}
-		</button>
-	</view>
+		<!-- Color Control Card -->
+		<view class="card">
+			<view class="card-header">
+				<text class="card-title">颜色控制</text>
+				<text class="card-value">{{ currentColorName }}</text>
+			</view>
+			<view class="color-palette">
+				<view 
+					v-for="(item, index) in colors" 
+					:key="index"
+					class="color-btn"
+					:class="{ 'active': activeColorIndex === index }"
+					:style="{ backgroundColor: item.hex }"
+					@click="handleColorClick(index, item)"
+				>
+					<!-- Inner indicator for selection -->
+					<view class="color-indicator" v-if="activeColorIndex === index"></view>
+				</view>
+			</view>
+		</view>
 
-	<!-- 滑块组件 -->
-	<view class="slider-container">
-		<slider :value="sliderValue" @change="sliderChange" show-value />
-		<!-- </view> -->
+		<!-- Brightness Control Card -->
+		<view class="card">
+			<view class="card-header">
+				<text class="card-title">亮度控制</text>
+				<text class="card-value">{{ sliderValue }}%</text>
+			</view>
+			
+			<view class="brightness-presets">
+				<view 
+					v-for="(brightness, index) in brightnessLevels" 
+					:key="index" 
+					class="preset-btn"
+					:class="{ 'active': sliderValue === brightness }"
+					@click="handleBrightnessClick(brightness)"
+				>
+					{{ brightness }}%
+				</view>
+			</view>
+
+			<view class="slider-wrapper">
+				<text class="icon">🔅</text>
+				<slider 
+					class="custom-slider"
+					:value="sliderValue" 
+					@change="sliderChange" 
+					activeColor="#4facfe"
+					backgroundColor="#333333"
+					block-color="#ffffff"
+					block-size="24"
+				/>
+				<text class="icon">🔆</text>
+			</view>
+		</view>
 	</view>
 </template>
 
 <script setup>
-	import {
-		ref
-	} from 'vue';
-	import axios from 'axios'; // 使用 axios 发送请求
-	import {
-		request
-	} from '@/request.js'; // 确保路径正确
+	import { ref } from 'vue';
+	import { sendUdpMessage } from '@/udp.js';
 
+	// 目标设备的 IP 和 端口配置 (可在需要时统一修改)
+	const targetIp = '192.168.0.104';
+	const targetPort = 5000;
 
-	// 初始化滑块的值
+	// Brightness State
 	const sliderValue = ref(50);
-
-	// 初始化亮度级别数组
 	const brightnessLevels = ref([10, 30, 60, 100]);
 
-	// 滑块值改变时更新数据并发送到服务器
-	const sliderChange = async (e) => {
-		sliderValue.value = e.detail.value;
+	// Color State
+	const activeColorIndex = ref(0);
+	const currentColorName = ref('暖白');
+	const colors = ref([
+		{ name: '暖白', hex: '#FFDFB0', r: 255, g: 223, b: 176 },
+		{ name: '正白', hex: '#FFFFFF', r: 255, g: 255, b: 255 },
+		{ name: '冷白', hex: '#E0F0FF', r: 224, g: 240, b: 255 },
+		{ name: '红色', hex: '#FF4D4D', r: 255, g: 77, b: 77 },
+		{ name: '绿色', hex: '#4DFF4D', r: 77, g: 255, b: 77 },
+		{ name: '蓝色', hex: '#4D4DFF', r: 77, g: 77, b: 255 },
+		{ name: '紫色', hex: '#B84DFF', r: 184, g: 77, b: 255 },
+		{ name: '关闭', hex: '#222222', r: 0, g: 0, b: 0 }
+	]);
 
-		// 向服务器发送滑块的当前值
-		try {
-			const response = await request({
-				url: 'http://192.168.0.104:5000/api', // 替换为你的API地址
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				data: JSON.stringify({
-					"data": sliderValue.value
-				})
-			});
-			console.log('服务器响应:', response);
-		} catch (error) {
-			console.error('发送亮度值时出错:', error);
-		}
-
-
+	const sendRequest = (dataPayload) => {
+		// 使用 UDP 极速发送，fire-and-forget，无需 await 甚至 try/catch 网络等待
+		sendUdpMessage(dataPayload, targetIp, targetPort);
 	};
 
-	// 处理亮度按钮点击的方法，并发送到服务器
-	const handleBrightnessClick = async (index, brightness) => {
-		console.log(`亮度按钮 ${brightness} 被点击，索引为 ${index}`);
+	// Handle Color Change
+	const handleColorClick = (index, colorItem) => {
+		activeColorIndex.value = index;
+		currentColorName.value = colorItem.name;
+		console.log(`切换颜色到: ${colorItem.name}`);
+		
+		const payload = {
+			r: colorItem.r,
+			g: colorItem.g,
+			b: colorItem.b
+		};
+		sendRequest(payload);
+	};
 
-		// 更新滑块的值
+	// Handle Brightness Slider Change
+	const sliderChange = (e) => {
+		sliderValue.value = e.detail.value;
+		console.log(`滑动条调整亮度: ${sliderValue.value}`);
+		sendRequest({ data: sliderValue.value });
+	};
+
+	// Handle Brightness Preset Click
+	const handleBrightnessClick = (brightness) => {
 		sliderValue.value = brightness;
-
-		// 向服务器发送亮度值
-		try {
-			const response = await request({
-				url: 'http://192.168.0.104:5000/api', // 替换为你的API地址
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				data: JSON.stringify({
-					"data": brightness
-				})
-			});
-			console.log('服务器响应:', response);
-		} catch (error) {
-			console.error('发送亮度值时出错:', error);
-		}
-
+		console.log(`按钮点击亮度: ${brightness}`);
+		sendRequest({ data: brightness });
 	};
 </script>
 
 <style scoped>
+	/* 全局容器：深色模式背景 */
 	.container {
+		min-height: 100vh;
+		background-color: #121212;
+		color: #ffffff;
+		padding: 40rpx 30rpx;
+		box-sizing: border-box;
+		font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+	}
+
+	/* 头部样式 */
+	.header {
+		margin-bottom: 60rpx;
+		margin-top: 40rpx;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		padding: 5%;
-		/* 使用百分比以适应不同屏幕 */
-		width: 100%;
 	}
 
-	.uni-title {
-		font-size: 18px;
-		font-weight: bold;
-		margin: 20% 0% 0% 40%;
-		/* 使用百分比以适应不同屏幕 */
+	.title {
+		font-size: 64rpx;
+		font-weight: 700;
+		color: #ffffff;
+		letter-spacing: 2rpx;
+		margin-bottom: 10rpx;
 	}
 
-	.button-group {
+	.subtitle {
+		font-size: 28rpx;
+		color: #888888;
+		font-weight: 400;
+	}
+
+	/* 卡片样式 */
+	.card {
+		background-color: #1E1E1E;
+		border-radius: 32rpx;
+		padding: 40rpx;
+		margin-bottom: 40rpx;
+		box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.2);
+	}
+
+	.card-header {
 		display: flex;
-		justify-content: space-around;
-		width: 80%;
-		/* 确保按钮组占满宽度 */
-		margin: 10% auto;
-		/* 使用百分比以适应不同屏幕 */
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 40rpx;
 	}
 
-	.btn {
-		padding: 5px 10px;
-		font-size: 16px;
-		border: 1px solid #ccc;
-		background-color: #f9f9f9;
-		cursor: pointer;
-		border-radius: 5px;
+	.card-title {
+		font-size: 32rpx;
+		font-weight: 600;
+		color: #E0E0E0;
+	}
+
+	.card-value {
+		font-size: 28rpx;
+		color: #4facfe;
+		font-weight: 500;
+	}
+
+	/* 颜色面板 */
+	.color-palette {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 30rpx;
+		justify-content: space-between;
+	}
+
+	.color-btn {
+		width: 100rpx;
+		height: 100rpx;
+		border-radius: 50%;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.3);
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
+		border: 4rpx solid transparent;
+		margin-bottom: 10rpx;
+	}
+
+	.color-btn:active {
+		transform: scale(0.9);
+	}
+
+	.color-btn.active {
+		transform: scale(1.05);
+		border-color: #ffffff;
+		box-shadow: 0 8rpx 20rpx rgba(255, 255, 255, 0.2);
+	}
+
+	.color-indicator {
+		width: 30rpx;
+		height: 30rpx;
+		border-radius: 50%;
+		background-color: transparent;
+		border: 4rpx solid #1e1e1e;
+	}
+
+	/* 亮度预设池 */
+	.brightness-presets {
+		display: flex;
+		justify-content: space-between;
+		margin-bottom: 40rpx;
+	}
+
+	.preset-btn {
 		flex: 1;
-		/* 让按钮平分空间 */
-		margin: 20% 10px 0 10px;
-		/* 添加左右间距 */
+		text-align: center;
+		padding: 20rpx 0;
+		margin: 0 10rpx;
+		background-color: #2A2A2A;
+		border-radius: 20rpx;
+		font-size: 28rpx;
+		color: #A0A0A0;
+		font-weight: 500;
+		transition: all 0.2s ease;
+	}
+	
+	.preset-btn:first-child {
+		margin-left: 0;
 	}
 
-	.slider-container {
-		width: 100%;
-		/* 设置容器宽度为100% */
-		max-width: 80%;
-		/* 可设置最大宽度 */
-		margin: 15% auto;
-		/* 垂直居中，自动水平居中 */
+	.preset-btn:last-child {
+		margin-right: 0;
 	}
 
-	.slider {
-		width: 100%;
-		/* 设置滑条宽度为100% */
+	.preset-btn.active {
+		background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+		color: #ffffff;
+		box-shadow: 0 6rpx 16rpx rgba(79, 172, 254, 0.4);
+	}
+
+	.preset-btn:active {
+		transform: scale(0.95);
+	}
+
+	/* 滑块容器 */
+	.slider-wrapper {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.icon {
+		font-size: 40rpx;
+		color: #888888;
+	}
+
+	.custom-slider {
+		flex: 1;
+		margin: 0 20rpx;
 	}
 </style>
