@@ -1,7 +1,7 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
 const udp = require("../../udp.js");
-const targetIp = "192.168.0.104";
+const targetIp = "192.168.50.6";
 const targetPort = 5e3;
 const _sfc_main = {
   __name: "index",

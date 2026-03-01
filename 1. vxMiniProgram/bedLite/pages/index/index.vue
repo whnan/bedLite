@@ -68,7 +68,7 @@
 	import { sendUdpMessage } from '@/udp.js';
 
 	// 目标设备的 IP 和 端口配置 (可在需要时统一修改)
-	const targetIp = '192.168.0.104';
+	const targetIp = '192.168.50.6';
 	const targetPort = 5000;
 
 	// Brightness State
